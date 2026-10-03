@@ -4,16 +4,39 @@ const ai = new GoogleGenAI({
     apiKey: process.env.GEMINI_API_KEY,
 });
 
-async function generateGeminiResponse(message) {
-    const response = await ai.models.generateContent({
-        model: "gemini-3.8-flash",
-        contents: message,
-    });
+const MODEL = "gemini-3.8-flash";
 
-    return {
-        text: response.text,
-        usageMetadata: response.usageMetadata,
-    };
+async function generateGeminiResponse(message) {
+    const maxAttempts = 3;
+
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+        try {
+            const response = await ai.models.generateContent({
+                model: MODEL,
+                contents: message,
+            });
+
+            return {
+                text: response.text,
+                usageMetadata: response.usageMetadata,
+                model: MODEL,
+            };
+        } catch (error) {
+            if (error.status === 503 && attempt < maxAttempts) {
+                console.log(
+                    `Gemini yoğun, tekrar deneniyor (${attempt}/${maxAttempts})`
+                );
+
+                await new Promise((resolve) =>
+                    setTimeout(resolve, 2000 * attempt)
+                );
+
+                continue;
+            }
+
+            throw error;
+        }
+    }
 }
 
 module.exports = {

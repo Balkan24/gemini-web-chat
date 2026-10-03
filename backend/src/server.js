@@ -7,6 +7,7 @@ const pool = require("./db/connection");
 const authRoutes = require("./routes/auth");
 const conversationRoutes = require("./routes/conversations");
 const authMiddleware = require("./middleware/authMiddleware");
+const budgetRoutes = require("./routes/budget");
 
 const app = express();
 
@@ -16,6 +17,7 @@ app.use(express.json());
 app.use("/api/auth", authRoutes);
 app.use("/api/conversations", conversationRoutes);
 app.use("/api/conversations", messageRoutes);
+app.use("/api/budget", budgetRoutes);
 
 // Backend kontrolü
 app.get("/api/health", (req, res) => {
