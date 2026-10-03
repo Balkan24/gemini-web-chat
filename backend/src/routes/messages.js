@@ -73,19 +73,26 @@ router.post(
                 });
             }
 
-            // Kullanıcı mesajını veritabanına kaydet
+            // Önce Gemini'den cevabı al
+            const geminiResult =
+                await generateGeminiResponse(
+                    content.trim()
+                );
+
+            // Gemini cevabı başarıyla geldikten sonra
+            // kullanıcı mesajını veritabanına kaydet
             const userMessageResult = await pool.query(
                 `INSERT INTO messages
-                (
-                    conversation_id,
-                    role,
-                    content,
-                    prompt_tokens,
-                    candidate_tokens,
-                    cost_usd
-                )
-                 VALUES ($1, $2, $3, $4, $5, $6)
-                 RETURNING *`,
+    (
+        conversation_id,
+        role,
+        content,
+        prompt_tokens,
+        candidate_tokens,
+        cost_usd
+    )
+     VALUES ($1, $2, $3, $4, $5, $6)
+     RETURNING *`,
                 [
                     conversationId,
                     "user",
@@ -95,12 +102,6 @@ router.post(
                     0,
                 ]
             );
-
-            // Gemini'den cevap al
-            const geminiResult =
-                await generateGeminiResponse(
-                    content.trim()
-                );
 
             // Token bilgilerini al
             const promptTokens =
