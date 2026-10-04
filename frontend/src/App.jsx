@@ -37,12 +37,23 @@ function App() {
     setUser(loggedInUser);
   }
 
+  function handleLogout() {
+    localStorage.removeItem("token");
+    setUser(null);
+    setPage("login");
+  }
+
   if (authLoading) {
     return <div>Oturum kontrol ediliyor...</div>;
   }
 
   if (user) {
-    return <ChatPage user={user} />;
+    return (
+      <ChatPage
+        user={user}
+        onLogout={handleLogout}
+      />
+    );
   }
 
   if (page === "register") {

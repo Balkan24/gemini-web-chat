@@ -10,7 +10,7 @@ import {
   streamMessage,
 } from "../services/api";
 
-function ChatPage({ user }) {
+function ChatPage({ user, onLogout }) {
   const [conversations, setConversations] = useState([]);
   const [selectedConversation, setSelectedConversation] = useState(null);
   const [messages, setMessages] = useState([]);
@@ -113,10 +113,10 @@ function ChatPage({ user }) {
               current.map((message) =>
                 message.id === temporaryAssistantId
                   ? {
-                      ...message,
-                      content:
-                        message.content + eventData.text,
-                    }
+                    ...message,
+                    content:
+                      message.content + eventData.text,
+                  }
                   : message
               )
             );
@@ -127,10 +127,10 @@ function ChatPage({ user }) {
               current.map((message) =>
                 message.id === temporaryAssistantId
                   ? {
-                      ...eventData.assistantMessage,
-                      usage: eventData.usage,
-                      streaming: false,
-                    }
+                    ...eventData.assistantMessage,
+                    usage: eventData.usage,
+                    streaming: false,
+                  }
                   : message
               )
             );
@@ -141,7 +141,7 @@ function ChatPage({ user }) {
           if (eventName === "error") {
             setError(
               eventData.message ||
-                "Streaming sırasında bir hata oluştu."
+              "Streaming sırasında bir hata oluştu."
             );
           }
         }
@@ -158,7 +158,11 @@ function ChatPage({ user }) {
       <aside className="sidebar">
         <h2>Gemini Web Chat</h2>
 
-        <button className="new-chat-button" type="button" onClick={handleNewConversation}>
+        <button
+          className="new-chat-button"
+          type="button"
+          onClick={handleNewConversation}
+        >
           + Yeni Sohbet
         </button>
 
@@ -166,10 +170,15 @@ function ChatPage({ user }) {
 
         {conversations.map((conversation) => (
           <button
-            className={`conversation-button ${selectedConversation?.id === conversation.id ? "active" : ""}`}
+            className={`conversation-button ${selectedConversation?.id === conversation.id
+              ? "active"
+              : ""
+              }`}
             type="button"
             key={conversation.id}
-            onClick={() => handleSelectConversation(conversation)}
+            onClick={() =>
+              handleSelectConversation(conversation)
+            }
           >
             {conversation.title}
           </button>
@@ -180,24 +189,32 @@ function ChatPage({ user }) {
         <header className="chat-header">
           <p className="user-email">{user?.email}</p>
 
-        {budget && (
-          <div className="budget-summary">
-            <strong>Aylık Kullanım</strong>
-            <p>
-              Bütçe: ${Number(budget.monthlyBudget).toFixed(2)}
-              {" | "}
-              Kullanılan: ${Number(budget.monthlyUsage).toFixed(6)}
-              {" | "}
-              Kalan: ${Number(budget.remainingBudget).toFixed(6)}
-              {" | "}
-              Kullanım: %{Number(budget.usagePercentage).toFixed(2)}
-            </p>
+          <button type="button" onClick={onLogout}>
+            Çıkış Yap
+          </button>
 
-            {budget.warning && (
-              <p>{budget.warning}</p>
-            )}
-          </div>
-        )}
+          {budget && (
+            <div className="budget-summary">
+              <strong>Aylık Kullanım</strong>
+              <p>
+                Bütçe: $
+                {Number(budget.monthlyBudget).toFixed(2)}
+                {" | "}
+                Kullanılan: $
+                {Number(budget.monthlyUsage).toFixed(6)}
+                {" | "}
+                Kalan: $
+                {Number(budget.remainingBudget).toFixed(6)}
+                {" | "}
+                Kullanım: %
+                {Number(budget.usagePercentage).toFixed(2)}
+              </p>
+
+              {budget.warning && (
+                <p>{budget.warning}</p>
+              )}
+            </div>
+          )}
         </header>
 
         {selectedConversation ? (
@@ -207,15 +224,23 @@ function ChatPage({ user }) {
             <div className="messages-container">
               {messages.map((message) => (
                 <div
-                  className={`message ${message.role === "user" ? "user-message" : "assistant-message"}`}
+                  className={`message ${message.role === "user"
+                    ? "user-message"
+                    : "assistant-message"
+                    }`}
                   key={message.id}
                 >
                   <strong>
-                    {message.role === "user" ? "Sen" : "Gemini"}:
+                    {message.role === "user"
+                      ? "Sen"
+                      : "Gemini"}
+                    :
                   </strong>{" "}
 
                   {message.role === "assistant" ? (
-                    <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                    <ReactMarkdown
+                      remarkPlugins={[remarkGfm]}
+                    >
                       {message.content}
                     </ReactMarkdown>
                   ) : (
@@ -229,26 +254,27 @@ function ChatPage({ user }) {
                         {" "}
                         | Prompt:{" "}
                         {message.usage?.promptTokens ??
-                          message.prompt_tokens} token
-                        | Cevap:{" "}
+                          message.prompt_tokens}{" "}
+                        token | Cevap:{" "}
                         {message.usage?.candidateTokens ??
-                          message.candidate_tokens} token
-                        | Maliyet: $
+                          message.candidate_tokens}{" "}
+                        token | Maliyet: $
                         {Number(
                           message.usage?.costUsd ??
-                            message.cost_usd
+                          message.cost_usd
                         ).toFixed(6)}
                       </small>
                     )}
 
-                  {message.streaming && (
-                    <span> ▌</span>
-                  )}
+                  {message.streaming && <span> ▌</span>}
                 </div>
               ))}
             </div>
 
-            <form className="message-form" onSubmit={handleSubmit}>
+            <form
+              className="message-form"
+              onSubmit={handleSubmit}
+            >
               <input
                 className="message-input"
                 type="text"
@@ -263,9 +289,7 @@ function ChatPage({ user }) {
               <button
                 className="send-button"
                 type="submit"
-                disabled={
-                  streaming || !input.trim()
-                }
+                disabled={streaming || !input.trim()}
               >
                 {streaming
                   ? "Gemini yanıtlıyor..."
