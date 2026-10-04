@@ -2,7 +2,7 @@ CREATE TABLE IF NOT EXISTS users (
     id SERIAL PRIMARY KEY,
     email VARCHAR(255) UNIQUE NOT NULL,
     password_hash TEXT NOT NULL,
-    monthly_budget_usd DECIMAL(10,2) DEFAULT 0,
+    monthly_budget_usd DECIMAL(12,6) DEFAULT 1.000000,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
