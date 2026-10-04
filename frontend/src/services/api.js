@@ -42,6 +42,10 @@ export function login(email, password) {
   });
 }
 
+export function getProfile() {
+  return apiRequest("/api/profile");
+}
+
 export function getConversations() {
   return apiRequest("/api/conversations");
 }
