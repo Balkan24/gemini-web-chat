@@ -11,7 +11,37 @@ const budgetRoutes = require("./routes/budget");
 
 const app = express();
 
-app.use(cors());
+const allowedOrigins = process.env.FRONTEND_URL
+    ? process.env.FRONTEND_URL
+        .split(",")
+        .map((origin) => origin.trim())
+    : [];
+
+app.use(
+    cors({
+        origin(origin, callback) {
+            // curl/Postman gibi Origin göndermeyen istekler
+            if (!origin) {
+                return callback(null, true);
+            }
+
+            // Local geliştirme
+            if (
+                origin === "http://localhost:5173" ||
+                origin === "http://127.0.0.1:5173"
+            ) {
+                return callback(null, true);
+            }
+
+            // Production frontend
+            if (allowedOrigins.includes(origin)) {
+                return callback(null, true);
+            }
+
+            return callback(new Error("CORS tarafından engellendi"));
+        },
+    })
+);
 app.use(express.json());
 
 app.use("/api/auth", authRoutes);
@@ -79,6 +109,22 @@ app.get("/api/profile", authMiddleware, async (req, res) => {
 });
 
 const PORT = process.env.PORT || 3000;
+
+app.use((err, req, res, next) => {
+    if (err.message === "CORS tarafından engellendi") {
+        return res.status(403).json({
+            status: "error",
+            message: "Bu origin için erişime izin verilmiyor",
+        });
+    }
+
+    console.error(err);
+
+    return res.status(500).json({
+        status: "error",
+        message: "Sunucu hatası",
+    });
+});
 
 app.listen(PORT, () => {
     console.log(`Server running on http://localhost:${PORT}`);
