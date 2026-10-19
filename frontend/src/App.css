@@ -353,3 +353,37 @@
     grid-template-columns: 1fr;
   }
 }
+
+.conversation-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.conversation-item .conversation-button {
+  flex: 1;
+  min-width: 0;
+  text-align: left;
+}
+
+.edit-conversation-button {
+  flex-shrink: 0;
+  cursor: pointer;
+  padding: 6px 8px;
+  border-radius: 6px;
+}
+
+.conversation-edit {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  width: 100%;
+}
+
+.conversation-edit input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 8px;
+  border-radius: 6px;
+}

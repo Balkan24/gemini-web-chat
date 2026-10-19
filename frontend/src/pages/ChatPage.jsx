@@ -10,11 +10,15 @@ import {
   getBudget,
   getConversationUsage,
   streamMessage,
+  updateConversation,
 } from "../services/api";
 
 function ChatPage({ user, onLogout }) {
   const [conversations, setConversations] = useState([]);
   const [searchQuery, setSearchQuery] = useState("");
+  const [editingConversationId, setEditingConversationId] = useState(null);
+  const [editingTitle, setEditingTitle] = useState("");
+  const [savingTitle, setSavingTitle] = useState(false);
   const [selectedConversation, setSelectedConversation] = useState(null);
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
@@ -133,7 +137,57 @@ function ChatPage({ user, onLogout }) {
       setError(err.message);
     }
   }
+  function handleStartEditing(conversation) {
+    setEditingConversationId(conversation.id);
+    setEditingTitle(conversation.title);
+    setError("");
+  }
+  async function handleSaveTitle(conversationId) {
+    const newTitle = editingTitle.trim();
 
+    if (!newTitle) {
+      setError("Sohbet başlığı boş olamaz.");
+      return;
+    }
+
+    if (savingTitle) {
+      return;
+    }
+
+    try {
+      setSavingTitle(true);
+      setError("");
+
+      const data = await updateConversation(conversationId, newTitle);
+      const updatedConversation = data.conversation;
+
+      setConversations((current) =>
+        current.map((conversation) =>
+          conversation.id === updatedConversation.id
+            ? updatedConversation
+            : conversation
+        )
+      );
+
+      setSelectedConversation((current) =>
+        current?.id === updatedConversation.id
+          ? updatedConversation
+          : current
+      );
+
+      setEditingConversationId(null);
+      setEditingTitle("");
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setSavingTitle(false);
+    }
+  }
+  function handleCancelEditing() {
+    setEditingConversationId(null);
+    setEditingTitle("");
+    setError("");
+  }
   async function handleSelectConversation(conversation) {
     if (streaming) {
       return;
@@ -284,22 +338,61 @@ function ChatPage({ user, onLogout }) {
               .includes(searchQuery.trim().toLocaleLowerCase("tr-TR"))
           )
           .map((conversation) => (
-          <button
-            className={`conversation-button ${selectedConversation?.id === conversation.id
-                ? "active"
-                : ""
-              }`}
-            type="button"
-            key={conversation.id}
-            disabled={streaming}
-            onClick={() =>
-              handleSelectConversation(conversation)
-            }
-          >
-            {conversation.title}
-          </button>
-        ))}
+            <div className="conversation-item" key={conversation.id}>
+              {editingConversationId === conversation.id ? (
+                <div className="conversation-edit">
+                  <input
+                    type="text"
+                    value={editingTitle}
+                    onChange={(event) => setEditingTitle(event.target.value)}
+                    aria-label="Yeni sohbet başlığı"
+                    disabled={savingTitle}
+                  />
+
+                  <button
+                    type="button"
+                    onClick={() => handleSaveTitle(conversation.id)}
+                    disabled={savingTitle}
+                  >
+                    {savingTitle ? "Kaydediliyor..." : "Kaydet"}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handleCancelEditing}
+                    disabled={savingTitle}
+                  >
+                    İptal
+                  </button>
+                </div>
+              ) : (
+                <>
+                  <button
+                    className={`conversation-button ${selectedConversation?.id === conversation.id ? "active" : ""
+                      }`}
+                    type="button"
+                    disabled={streaming}
+                    onClick={() => handleSelectConversation(conversation)}
+                  >
+                    {conversation.title}
+                  </button>
+
+                  <button
+                    type="button"
+                    className="edit-conversation-button"
+                    disabled={streaming}
+                    onClick={() => handleStartEditing(conversation)}
+                    aria-label={`${conversation.title} başlığını düzenle`}
+                    title="Sohbet adını düzenle"
+                  >
+                    ✏️
+                  </button>
+                </>
+              )}
+            </div>
+          ))}
       </aside>
+
 
       <main className="chat-main">
         <header className="chat-header">
