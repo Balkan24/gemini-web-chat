@@ -1,4 +1,3 @@
-
 import { useEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -22,6 +21,11 @@ function ChatPage({ user, onLogout }) {
   const [savingTitle, setSavingTitle] = useState(false);
   const [conversationToDelete, setConversationToDelete] = useState(null);
   const [deletingConversation, setDeletingConversation] = useState(false);
+  const deleteModalRef = useRef(null);
+  const cancelDeleteButtonRef = useRef(null);
+  const deleteTriggerButtonRef = useRef(null);
+  const newChatButtonRef = useRef(null);
+  const shouldRestoreDeleteFocusRef = useRef(false);
   const [selectedConversation, setSelectedConversation] = useState(null);
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
@@ -191,7 +195,82 @@ function ChatPage({ user, onLogout }) {
     setEditingTitle("");
     setError("");
   }
-  function handleStartDeleting(conversation) {
+  useEffect(() => {
+    if (!conversationToDelete) {
+      if (shouldRestoreDeleteFocusRef.current) {
+        const trigger = deleteTriggerButtonRef.current;
+        const focusTarget = trigger?.isConnected ? trigger : newChatButtonRef.current;
+        focusTarget?.focus();
+        shouldRestoreDeleteFocusRef.current = false;
+      }
+      return;
+    }
+
+    if (!deleteModalRef.current?.contains(document.activeElement)) {
+      (deletingConversation ? deleteModalRef.current : cancelDeleteButtonRef.current)?.focus();
+    }
+
+    function handleModalKeyDown(event) {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        if (!deletingConversation) {
+          setConversationToDelete(null);
+          setError("");
+        }
+        return;
+      }
+
+      if (event.key !== "Tab") return;
+
+      const modal = deleteModalRef.current;
+      if (!modal) return;
+
+      const focusableElements = Array.from(
+        modal.querySelectorAll(
+          'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+        )
+      );
+
+      if (focusableElements.length === 0) {
+        event.preventDefault();
+        modal.focus();
+        return;
+      }
+
+      const first = focusableElements[0];
+      const last = focusableElements[focusableElements.length - 1];
+      const active = document.activeElement;
+
+      if (event.shiftKey && (active === first || !modal.contains(active))) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && (active === last || !modal.contains(active))) {
+        event.preventDefault();
+        first.focus();
+      }
+    }
+
+    function handleFocusOutside(event) {
+      if (!deleteModalRef.current?.contains(event.target)) {
+        if (deletingConversation) {
+          deleteModalRef.current?.focus();
+        } else {
+          cancelDeleteButtonRef.current?.focus();
+        }
+      }
+    }
+
+    document.addEventListener("keydown", handleModalKeyDown);
+    document.addEventListener("focusin", handleFocusOutside);
+    return () => {
+      document.removeEventListener("keydown", handleModalKeyDown);
+      document.removeEventListener("focusin", handleFocusOutside);
+    };
+  }, [conversationToDelete, deletingConversation]);
+
+  function handleStartDeleting(conversation, triggerButton) {
+    deleteTriggerButtonRef.current = triggerButton;
+    shouldRestoreDeleteFocusRef.current = true;
     setConversationToDelete(conversation);
     setError("");
   }
@@ -355,6 +434,7 @@ function ChatPage({ user, onLogout }) {
         <h2>Gemini Web Chat</h2>
 
         <button
+          ref={newChatButtonRef}
           className="new-chat-button"
           type="button"
           onClick={handleNewConversation}
@@ -432,7 +512,7 @@ function ChatPage({ user, onLogout }) {
                   <button
                     type="button"
                     className="delete-conversation-button"
-                    onClick={() => handleStartDeleting(conversation)}
+                    onClick={(event) => handleStartDeleting(conversation, event.currentTarget)}
                     aria-label={`${conversation.title} sohbetini sil`}
                     title="Sohbeti sil"
                   >
@@ -447,21 +527,25 @@ function ChatPage({ user, onLogout }) {
         <div className="delete-confirmation-overlay">
           <div
             className="delete-confirmation-modal"
+            ref={deleteModalRef}
             role="dialog"
             aria-modal="true"
             aria-labelledby="delete-confirmation-title"
+            aria-describedby="delete-confirmation-description"
+            tabIndex={-1}
           >
             <h3 id="delete-confirmation-title">
               Sohbeti silmek istiyor musun?
             </h3>
 
-            <p>
+            <p id="delete-confirmation-description">
               <strong>{conversationToDelete.title}</strong> adlı sohbet
               silinecek. Bu işlem geri alınamaz.
             </p>
 
             <div className="delete-confirmation-actions">
               <button
+                ref={cancelDeleteButtonRef}
                 type="button"
                 onClick={handleCancelDeleting}
                 disabled={deletingConversation}
