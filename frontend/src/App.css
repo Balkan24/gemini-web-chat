@@ -387,3 +387,68 @@
   padding: 8px;
   border-radius: 6px;
 }
+
+/* 43. Gün - Sohbet silme butonu */
+.delete-conversation-button {
+  flex-shrink: 0;
+  cursor: pointer;
+  padding: 6px 8px;
+  border-radius: 6px;
+}
+
+/* Silme onay penceresinin arka planı */
+.delete-confirmation-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+/* Silme onay penceresi */
+.delete-confirmation-modal {
+  background: #ffffff;
+  color: #222222;
+  padding: 24px;
+  border-radius: 12px;
+  width: 90%;
+  max-width: 400px;
+  box-sizing: border-box;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.25);
+}
+
+.delete-confirmation-modal h3 {
+  margin-top: 0;
+}
+
+.delete-confirmation-modal p {
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+/* İptal ve Sil butonları */
+.delete-confirmation-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 20px;
+}
+
+.delete-confirmation-actions button {
+  cursor: pointer;
+  padding: 8px 14px;
+  border-radius: 6px;
+}
+
+.delete-confirmation-actions button:last-child {
+  background: #dc3545;
+  color: white;
+  border: none;
+}
+
+.delete-confirmation-actions button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}

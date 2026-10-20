@@ -11,6 +11,7 @@ import {
   getConversationUsage,
   streamMessage,
   updateConversation,
+  deleteConversation,
 } from "../services/api";
 
 function ChatPage({ user, onLogout }) {
@@ -19,6 +20,8 @@ function ChatPage({ user, onLogout }) {
   const [editingConversationId, setEditingConversationId] = useState(null);
   const [editingTitle, setEditingTitle] = useState("");
   const [savingTitle, setSavingTitle] = useState(false);
+  const [conversationToDelete, setConversationToDelete] = useState(null);
+  const [deletingConversation, setDeletingConversation] = useState(false);
   const [selectedConversation, setSelectedConversation] = useState(null);
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
@@ -187,6 +190,45 @@ function ChatPage({ user, onLogout }) {
     setEditingConversationId(null);
     setEditingTitle("");
     setError("");
+  }
+  function handleStartDeleting(conversation) {
+    setConversationToDelete(conversation);
+    setError("");
+  }
+
+  function handleCancelDeleting() {
+    setConversationToDelete(null);
+    setError("");
+  }
+  async function handleConfirmDeleting() {
+    if (!conversationToDelete || deletingConversation) {
+      return;
+    }
+
+    const conversationId = conversationToDelete.id;
+
+    try {
+      setDeletingConversation(true);
+      setError("");
+
+      await deleteConversation(conversationId);
+
+      setConversations((current) =>
+        current.filter((conversation) => conversation.id !== conversationId)
+      );
+
+      if (selectedConversation?.id === conversationId) {
+        setSelectedConversation(null);
+        setMessages([]);
+        setInput("");
+      }
+
+      setConversationToDelete(null);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setDeletingConversation(false);
+    }
   }
   async function handleSelectConversation(conversation) {
     if (streaming) {
@@ -387,12 +429,57 @@ function ChatPage({ user, onLogout }) {
                   >
                     ✏️
                   </button>
+                  <button
+                    type="button"
+                    className="delete-conversation-button"
+                    onClick={() => handleStartDeleting(conversation)}
+                    aria-label={`${conversation.title} sohbetini sil`}
+                    title="Sohbeti sil"
+                  >
+                    🗑️
+                  </button>
                 </>
               )}
             </div>
           ))}
       </aside>
+      {conversationToDelete && (
+        <div className="delete-confirmation-overlay">
+          <div
+            className="delete-confirmation-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="delete-confirmation-title"
+          >
+            <h3 id="delete-confirmation-title">
+              Sohbeti silmek istiyor musun?
+            </h3>
 
+            <p>
+              <strong>{conversationToDelete.title}</strong> adlı sohbet
+              silinecek. Bu işlem geri alınamaz.
+            </p>
+
+            <div className="delete-confirmation-actions">
+              <button
+                type="button"
+                onClick={handleCancelDeleting}
+                disabled={deletingConversation}
+              >
+                İptal
+              </button>
+
+              <button
+                type="button"
+                onClick={handleConfirmDeleting}
+                disabled={deletingConversation}
+              >
+                {deletingConversation ? "Siliniyor..." : "Sohbeti Sil"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <main className="chat-main">
         <header className="chat-header">
