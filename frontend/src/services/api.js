@@ -94,6 +94,12 @@ export async function streamMessage(conversationId, content, onEvent) {
   );
 
   if (!response.ok) {
+    if (response.status === 503) {
+      throw new Error(
+        "Gemini şu anda yoğun. Lütfen biraz sonra tekrar deneyin."
+      );
+    }
+
     const data = await response.json();
     throw new Error(data.message || "Mesaj gönderilemedi.");
   }

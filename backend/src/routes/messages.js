@@ -183,15 +183,20 @@ router.post(
                 error
             );
 
-            return res.status(500).json({
+            const isServiceUnavailable =
+                Number(error.status ?? error.code) === 503;
+
+            return res.status(
+                isServiceUnavailable ? 503 : 500
+            ).json({
                 status: "error",
-                message:
-                    "Mesaj oluşturulurken hata oluştu",
+                message: isServiceUnavailable
+                    ? "Gemini şu anda yoğun. Lütfen biraz sonra tekrar deneyin."
+                    : "Mesaj oluşturulurken hata oluştu. Lütfen tekrar deneyin.",
             });
         }
     }
 );
-
 
 // STREAMING MESAJ GÖNDERME
 router.post(
@@ -400,6 +405,9 @@ router.post(
             res.end();
 
         } catch (error) {
+            const isServiceUnavailable =
+                Number(error.status ?? error.code) === 503;
+
             console.error(
                 "STREAM MESSAGE ERROR:",
                 error
@@ -407,27 +415,32 @@ router.post(
 
             // SSE henüz başlamadıysa normal JSON hata cevabı
             if (!res.headersSent) {
-                return res.status(500).json({
+                return res.status(
+                    isServiceUnavailable ? 503 : 500
+                ).json({
                     status: "error",
-                    message:
-                        "Streaming mesaj oluşturulurken hata oluştu",
+                    message: isServiceUnavailable
+                        ? "Gemini şu anda yoğun. Lütfen biraz sonra tekrar deneyin."
+                        : "Mesaj oluşturulamadı. Lütfen tekrar deneyin.",
                 });
             }
 
             // SSE başladıktan sonra hata oluşursa
             // error event gönder
-            res.write(
-                `event: error\ndata: ${JSON.stringify({
-                    message:
-                        "Streaming sırasında hata oluştu",
-                })}\n\n`
-            );
+            if (!res.writableEnded) {
+                res.write(
+                    `event: error\ndata: ${JSON.stringify({
+                        message: isServiceUnavailable
+                            ? "Gemini şu anda yoğun. Lütfen biraz sonra tekrar deneyin."
+                            : "Streaming sırasında hata oluştu. Lütfen tekrar deneyin.",
+                    })}\n\n`
+                );
 
-            res.end();
+                res.end();
+            }
         }
     }
 );
-
 
 // MESAJLARI GETİRME
 router.get(

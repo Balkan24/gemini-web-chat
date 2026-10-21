@@ -14,6 +14,7 @@ import {
 
 function ChatPage({ user, onLogout }) {
   const [conversations, setConversations] = useState([]);
+  const [searchQuery, setSearchQuery] = useState("");
   const [selectedConversation, setSelectedConversation] = useState(null);
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
@@ -237,7 +238,16 @@ function ChatPage({ user, onLogout }) {
         }
       );
     } catch (err) {
-      setError(err.message);
+      const isNetworkError =
+        err instanceof TypeError ||
+        err.message === "Load failed" ||
+        err.message === "Failed to fetch";
+
+      setError(
+        isNetworkError
+          ? "Sunucuya bağlanılamadı. Lütfen bağlantınızı kontrol edin ve tekrar deneyin."
+          : err.message
+      );
     } finally {
       setStreaming(false);
     }
@@ -258,8 +268,22 @@ function ChatPage({ user, onLogout }) {
         </button>
 
         <h3 className="sidebar-title">Sohbetler</h3>
+        <input
+          className="conversation-search"
+          type="search"
+          placeholder="Sohbetlerde ara..."
+          aria-label="Sohbetlerde ara"
+          value={searchQuery}
+          onChange={(event) => setSearchQuery(event.target.value)}
+        />
 
-        {conversations.map((conversation) => (
+        {conversations
+          .filter((conversation) =>
+            (conversation.title || "")
+              .toLocaleLowerCase("tr-TR")
+              .includes(searchQuery.trim().toLocaleLowerCase("tr-TR"))
+          )
+          .map((conversation) => (
           <button
             className={`conversation-button ${selectedConversation?.id === conversation.id
                 ? "active"
@@ -288,23 +312,59 @@ function ChatPage({ user, onLogout }) {
           {budget && (
             <div className="budget-summary">
               <strong>Aylık Kullanım</strong>
+
               <p>
-                Bütçe: $
-                {Number(budget.monthlyBudget).toFixed(2)}
-                {" | "}
-                Kullanılan: $
-                {Number(budget.monthlyUsage).toFixed(6)}
-                {" | "}
-                Kalan: $
-                {Number(budget.remainingBudget).toFixed(6)}
-                {" | "}
-                Kullanım: %
-                {Number(budget.usagePercentage).toFixed(2)}
+                Aylık Bütçe: ${Number(budget.monthlyBudget).toFixed(2)}
               </p>
 
-              {budget.warning && (
-                <p>{budget.warning}</p>
-              )}
+              <p>
+                Kullanılan: ${Number(budget.monthlyUsage).toFixed(6)}
+              </p>
+
+              <p>
+                <strong>
+                  Kalan Bütçe: ${Math.max(
+                    0,
+                    Number(budget.remainingBudget)
+                  ).toFixed(6)}
+                </strong>
+              </p>
+
+              <p>
+                Kullanım Oranı: %{Number(budget.usagePercentage).toFixed(2)}
+              </p>
+
+              <div
+                className="budget-progress"
+                role="progressbar"
+                aria-label="Aylık bütçe kullanım oranı"
+                aria-valuenow={Math.min(
+                  100,
+                  Math.max(0, Number(budget.usagePercentage))
+                )}
+                aria-valuemin={0}
+                aria-valuemax={100}
+              >
+                <div
+                  className="budget-progress-fill"
+                  style={{
+                    width: `${Math.min(
+                      100,
+                      Math.max(0, Number(budget.usagePercentage))
+                    )}%`,
+                  }}
+                />
+              </div>
+
+              {budget.limitExceeded ? (
+                <p className="budget-alert">
+                  Aylık bütçe limitinize ulaştınız. Yeni mesaj gönderemeyebilirsiniz.
+                </p>
+              ) : budget.warning ? (
+                <p className="budget-alert">
+                  Dikkat! Aylık bütçenizin en az %80'ini kullandınız.
+                </p>
+              ) : null}
             </div>
           )}
         </header>
