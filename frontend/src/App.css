@@ -219,3 +219,91 @@
     max-width: 90%;
   }
 }
+
+/* Day 48 - Sohbet kullanım özeti */
+
+.conversation-usage-summary {
+  margin-bottom: 24px;
+  padding: 20px;
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 14px;
+}
+
+.conversation-usage-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.conversation-usage-heading h2 {
+  margin: 0;
+  font-size: 17px;
+  color: #111827;
+}
+
+.conversation-usage-heading button {
+  padding: 7px 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  background: #f9fafb;
+  color: #374151;
+  cursor: pointer;
+}
+
+.conversation-usage-heading button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.conversation-usage-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.conversation-usage-grid>div {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 14px;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  background: #f8fafc;
+}
+
+.conversation-usage-grid span {
+  font-size: 12px;
+  color: #64748b;
+}
+
+.conversation-usage-grid strong {
+  font-size: 18px;
+  color: #1e293b;
+  overflow-wrap: anywhere;
+}
+
+.conversation-usage-error {
+  color: #b91c1c;
+  font-size: 13px;
+}
+
+.conversation-usage-updating {
+  margin: 12px 0 0;
+  color: #64748b;
+  font-size: 12px;
+}
+
+@media (max-width: 900px) {
+  .conversation-usage-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 480px) {
+  .conversation-usage-grid {
+    grid-template-columns: 1fr;
+  }
+}
