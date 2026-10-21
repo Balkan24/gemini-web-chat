@@ -113,10 +113,11 @@ router.patch("/:id", authMiddleware, async (req, res) => {
 
         const result = await pool.query(
             `UPDATE conversations
-             SET title = $1,
-                 updated_at = CURRENT_TIMESTAMP
-             WHERE id = $2 AND user_id = $3
-             RETURNING id, user_id, title, created_at, updated_at`,
+     SET title = $1,
+         title_is_manual = TRUE,
+         updated_at = CURRENT_TIMESTAMP
+     WHERE id = $2 AND user_id = $3
+     RETURNING id, user_id, title, title_is_manual, created_at, updated_at`,
             [title.trim(), id, req.user.userId]
         );
 

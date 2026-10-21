@@ -1,3 +1,4 @@
+
 const express = require("express");
 const pool = require("../db/connection");
 const authMiddleware = require("../middleware/authMiddleware");
@@ -5,18 +6,13 @@ const authMiddleware = require("../middleware/authMiddleware");
 const {
     generateGeminiResponse,
     generateGeminiStream,
+    generateGeminiTitle,
 } = require("../services/geminiService");
 
-const {
-    calculateCost,
-} = require("../services/costService");
-
-const {
-    getBudgetStatus,
-} = require("../services/budgetService");
+const { calculateCost } = require("../services/costService");
+const { getBudgetStatus } = require("../services/budgetService");
 
 const router = express.Router();
-
 
 // MESAJ GÖNDERME
 router.post(
@@ -53,6 +49,17 @@ router.post(
                 });
             }
 
+            // Sohbette daha önce mesaj var mı?
+            const messageCountResult = await pool.query(
+                `SELECT COUNT(*)::int AS count
+                 FROM messages
+                 WHERE conversation_id = $1`,
+                [conversationId]
+            );
+
+            const isFirstMessage =
+                messageCountResult.rows[0].count === 0;
+
             // Aylık bütçe kontrolü
             const budgetStatus = await getBudgetStatus(
                 req.user.userId
@@ -74,25 +81,24 @@ router.post(
             }
 
             // Önce Gemini'den cevabı al
-            const geminiResult =
-                await generateGeminiResponse(
-                    content.trim()
-                );
+            const geminiResult = await generateGeminiResponse(
+                content.trim()
+            );
 
             // Gemini cevabı başarıyla geldikten sonra
             // kullanıcı mesajını veritabanına kaydet
             const userMessageResult = await pool.query(
                 `INSERT INTO messages
-    (
-        conversation_id,
-        role,
-        content,
-        prompt_tokens,
-        candidate_tokens,
-        cost_usd
-    )
-     VALUES ($1, $2, $3, $4, $5, $6)
-     RETURNING *`,
+                (
+                    conversation_id,
+                    role,
+                    content,
+                    prompt_tokens,
+                    candidate_tokens,
+                    cost_usd
+                )
+                VALUES ($1, $2, $3, $4, $5, $6)
+                RETURNING *`,
                 [
                     conversationId,
                     "user",
@@ -128,8 +134,8 @@ router.post(
                     candidate_tokens,
                     cost_usd
                 )
-                 VALUES ($1, $2, $3, $4, $5, $6)
-                 RETURNING *`,
+                VALUES ($1, $2, $3, $4, $5, $6)
+                RETURNING *`,
                 [
                     conversationId,
                     "assistant",
@@ -151,7 +157,7 @@ router.post(
                     candidate_tokens,
                     cost_usd
                 )
-                 VALUES ($1, $2, $3, $4, $5, $6)`,
+                VALUES ($1, $2, $3, $4, $5, $6)`,
                 [
                     req.user.userId,
                     assistantMessageResult.rows[0].id,
@@ -161,6 +167,35 @@ router.post(
                     cost.totalCost,
                 ]
             );
+
+            // İlk mesajdan sonra otomatik sohbet başlığı oluştur
+            if (isFirstMessage) {
+                try {
+                    const titleResult = await generateGeminiTitle(
+                        content.trim()
+                    );
+
+                    await pool.query(
+                        `UPDATE conversations
+                         SET title = $1,
+                             updated_at = CURRENT_TIMESTAMP
+                         WHERE id = $2
+                           AND user_id = $3
+                           AND title_is_manual = FALSE
+                           AND (title IS NULL OR title = 'Yeni Sohbet')`,
+                        [
+                            titleResult.title,
+                            conversationId,
+                            req.user.userId,
+                        ]
+                    );
+                } catch (titleError) {
+                    console.error(
+                        "AUTO TITLE ERROR:",
+                        titleError.message
+                    );
+                }
+            }
 
             // Başarılı cevap
             return res.status(201).json({
@@ -220,7 +255,7 @@ router.post(
 
             // Sohbet gerçekten bu kullanıcıya mı ait?
             const conversationResult = await pool.query(
-                `SELECT id
+                `SELECT id, title, title_is_manual
                  FROM conversations
                  WHERE id = $1 AND user_id = $2`,
                 [conversationId, req.user.userId]
@@ -253,9 +288,21 @@ router.post(
                 });
             }
 
+            // Streaming: Sohbetin ilk mesajı mı?
+            const streamMessageCountResult = await pool.query(
+                `SELECT COUNT(*)::int AS count
+                 FROM messages
+                 WHERE conversation_id = $1`,
+                [conversationId]
+            );
+
+            const isStreamFirstMessage =
+                streamMessageCountResult.rows[0].count === 0;
+
             // Önce Gemini stream'ini başlat
-            const geminiResult =
-                await generateGeminiStream(content.trim());
+            const geminiResult = await generateGeminiStream(
+                content.trim()
+            );
 
             // Stream başarıyla başladıktan sonra
             // kullanıcı mesajını veritabanına kaydet
@@ -269,8 +316,8 @@ router.post(
                     candidate_tokens,
                     cost_usd
                 )
-                 VALUES ($1, $2, $3, $4, $5, $6)
-                 RETURNING *`,
+                VALUES ($1, $2, $3, $4, $5, $6)
+                RETURNING *`,
                 [
                     conversationId,
                     "user",
@@ -354,8 +401,8 @@ router.post(
                     candidate_tokens,
                     cost_usd
                 )
-                 VALUES ($1, $2, $3, $4, $5, $6)
-                 RETURNING *`,
+                VALUES ($1, $2, $3, $4, $5, $6)
+                RETURNING *`,
                 [
                     conversationId,
                     "assistant",
@@ -377,7 +424,7 @@ router.post(
                     candidate_tokens,
                     cost_usd
                 )
-                 VALUES ($1, $2, $3, $4, $5, $6)`,
+                VALUES ($1, $2, $3, $4, $5, $6)`,
                 [
                     req.user.userId,
                     assistantMessageResult.rows[0].id,
@@ -387,6 +434,45 @@ router.post(
                     cost.totalCost,
                 ]
             );
+
+            // Streaming: İlk mesajdan sonra otomatik başlık oluştur
+            if (isStreamFirstMessage) {
+                try {
+                    const titleResult = await generateGeminiTitle(
+                        content.trim()
+                    );
+
+                    const titleUpdateResult = await pool.query(
+                        `UPDATE conversations
+                         SET title = $1,
+                             updated_at = CURRENT_TIMESTAMP
+                         WHERE id = $2
+                           AND user_id = $3
+                           AND title_is_manual = FALSE
+                           AND (title IS NULL OR title = 'Yeni Sohbet')
+                         RETURNING title`,
+                        [
+                            titleResult.title,
+                            conversationId,
+                            req.user.userId,
+                        ]
+                    );
+
+                    if (titleUpdateResult.rows.length > 0) {
+                        res.write(
+                            `event: title_updated\ndata: ${JSON.stringify({
+                                conversationId,
+                                title: titleUpdateResult.rows[0].title,
+                            })}\n\n`
+                        );
+                    }
+                } catch (titleError) {
+                    console.error(
+                        "STREAM AUTO TITLE ERROR:",
+                        titleError.message
+                    );
+                }
+            }
 
             // Son event: mesaj ve kullanım bilgileri
             res.write(
@@ -452,7 +538,7 @@ router.get(
 
             // Sohbet gerçekten bu kullanıcıya mı ait?
             const conversationResult = await pool.query(
-                `SELECT id
+                `SELECT id, title, title_is_manual
                  FROM conversations
                  WHERE id = $1 AND user_id = $2`,
                 [conversationId, req.user.userId]
@@ -500,6 +586,5 @@ router.get(
         }
     }
 );
-
 
 module.exports = router;

@@ -387,6 +387,24 @@ function ChatPage({ user, onLogout }) {
             );
           }
 
+          if (eventName === "title_updated") {
+            const updatedId = Number(eventData.conversationId);
+
+            setConversations((current) =>
+              current.map((conversation) =>
+                conversation.id === updatedId
+                  ? { ...conversation, title: eventData.title }
+                  : conversation
+              )
+            );
+
+            setSelectedConversation((current) =>
+              current?.id === updatedId
+                ? { ...current, title: eventData.title }
+                : current
+            );
+          }
+
           if (eventName === "done") {
             setMessages((current) =>
               current.map((message) =>

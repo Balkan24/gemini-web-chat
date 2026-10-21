@@ -70,8 +70,41 @@ async function generateGeminiStream(message) {
         }
     }
 }
+async function generateGeminiTitle(content) {
+    const response = await ai.models.generateContent({
+        model: MODEL,
+        contents: [
+            {
+                role: "user",
+                parts: [
+                    {
+                        text:
+                            "Aşağıdaki kullanıcı mesajına uygun, " +
+                            "kısa ve anlamlı bir sohbet başlığı oluştur. " +
+                            "Başlık en fazla 6 kelime olsun. " +
+                            "Yalnızca başlığı yaz, açıklama veya tırnak ekleme. " +
+                            "Mesajın dilini kullan.\n\n" +
+                            content,
+                    },
+                ],
+            },
+        ],
+    });
 
+    const title = response.text?.trim();
+
+    if (!title) {
+        throw new Error("Gemini boş başlık oluşturdu");
+    }
+
+    return {
+        title: title.slice(0, 100),
+        usageMetadata: response.usageMetadata,
+        model: MODEL,
+    };
+}
 module.exports = {
     generateGeminiResponse,
     generateGeminiStream,
+    generateGeminiTitle,
 };
