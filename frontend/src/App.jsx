@@ -22,7 +22,7 @@ function App() {
       try {
         const data = await getProfile();
         setUser(data.user);
-      } catch (error) {
+      } catch {
         localStorage.removeItem("token");
         setUser(null);
       } finally {

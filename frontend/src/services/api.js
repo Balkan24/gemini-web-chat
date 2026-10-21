@@ -144,3 +144,6 @@ export async function streamMessage(conversationId, content, onEvent) {
 export function getBudget() {
   return apiRequest("/api/budget");
 }
+export function getConversationUsage(conversationId) {
+  return apiRequest(`/api/conversations/${conversationId}/usage`);
+}

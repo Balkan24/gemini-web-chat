@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+
+import { useEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 
@@ -7,6 +8,7 @@ import {
   getConversations,
   getMessages,
   getBudget,
+  getConversationUsage,
   streamMessage,
 } from "../services/api";
 
@@ -19,9 +21,31 @@ function ChatPage({ user, onLogout }) {
   const [streaming, setStreaming] = useState(false);
   const [budget, setBudget] = useState(null);
 
+  const [conversationUsage, setConversationUsage] = useState(null);
+  const [usageLoading, setUsageLoading] = useState(false);
+  const [usageError, setUsageError] = useState("");
+
+  // Eski sohbetlere ait API yanıtlarının yeni sohbeti
+  // etkilemesini önlemek için istek kimliği tutulur.
+  const usageRequestId = useRef(0);
+  const messagesRequestId = useRef(0);
+
   useEffect(() => {
-    loadConversations();
-    loadBudget();
+    async function initialize() {
+      try {
+        const [conversationData, budgetData] = await Promise.all([
+          getConversations(),
+          getBudget(),
+        ]);
+
+        setConversations(conversationData.conversations || []);
+        setBudget(budgetData.budget);
+      } catch (err) {
+        setError(err.message);
+      }
+    }
+
+    initialize();
   }, []);
 
   async function loadBudget() {
@@ -33,14 +57,56 @@ function ChatPage({ user, onLogout }) {
     }
   }
 
-  async function loadConversations() {
-    try {
-      setError("");
+  async function loadConversationUsage(conversationId) {
+    const requestId = ++usageRequestId.current;
 
-      const data = await getConversations();
-      setConversations(data.conversations || []);
+    setConversationUsage(null);
+    setUsageError("");
+    setUsageLoading(true);
+
+    try {
+      const data = await getConversationUsage(conversationId);
+
+      if (requestId !== usageRequestId.current) {
+        return;
+      }
+
+      setConversationUsage(data.usage);
     } catch (err) {
-      setError(err.message);
+      if (requestId !== usageRequestId.current) {
+        return;
+      }
+
+      setUsageError(err.message);
+    } finally {
+      if (requestId === usageRequestId.current) {
+        setUsageLoading(false);
+      }
+    }
+  }
+
+  async function refreshConversationUsage(conversationId) {
+    const requestId = ++usageRequestId.current;
+
+    setUsageError("");
+    setUsageLoading(true);
+
+    try {
+      const data = await getConversationUsage(conversationId);
+
+      if (requestId !== usageRequestId.current) {
+        return;
+      }
+
+      setConversationUsage(data.usage);
+    } catch (err) {
+      if (requestId === usageRequestId.current) {
+        setUsageError(err.message);
+      }
+    } finally {
+      if (requestId === usageRequestId.current) {
+        setUsageLoading(false);
+      }
     }
   }
 
@@ -56,22 +122,43 @@ function ChatPage({ user, onLogout }) {
         ...current,
       ]);
 
+      ++messagesRequestId.current;
       setSelectedConversation(conversation);
       setMessages([]);
+      setInput("");
+
+      loadConversationUsage(conversation.id);
     } catch (err) {
       setError(err.message);
     }
   }
 
   async function handleSelectConversation(conversation) {
-    try {
-      setError("");
-      setSelectedConversation(conversation);
+    if (streaming) {
+      return;
+    }
 
+    setError("");
+    setSelectedConversation(conversation);
+    setMessages([]);
+    setInput("");
+
+    const requestId = ++messagesRequestId.current;
+
+    loadConversationUsage(conversation.id);
+
+    try {
       const data = await getMessages(conversation.id);
+
+      if (requestId !== messagesRequestId.current) {
+        return;
+      }
+
       setMessages(data.messages || []);
     } catch (err) {
-      setError(err.message);
+      if (requestId === messagesRequestId.current) {
+        setError(err.message);
+      }
     }
   }
 
@@ -84,6 +171,8 @@ function ChatPage({ user, onLogout }) {
       return;
     }
 
+    const conversationId = selectedConversation.id;
+
     setInput("");
     setError("");
     setStreaming(true);
@@ -92,7 +181,7 @@ function ChatPage({ user, onLogout }) {
 
     try {
       await streamMessage(
-        selectedConversation.id,
+        conversationId,
         content,
         (eventName, eventData) => {
           if (eventName === "user_message") {
@@ -135,6 +224,7 @@ function ChatPage({ user, onLogout }) {
               )
             );
 
+            refreshConversationUsage(conversationId);
             loadBudget();
           }
 
@@ -162,6 +252,7 @@ function ChatPage({ user, onLogout }) {
           className="new-chat-button"
           type="button"
           onClick={handleNewConversation}
+          disabled={streaming}
         >
           + Yeni Sohbet
         </button>
@@ -171,11 +262,12 @@ function ChatPage({ user, onLogout }) {
         {conversations.map((conversation) => (
           <button
             className={`conversation-button ${selectedConversation?.id === conversation.id
-              ? "active"
-              : ""
+                ? "active"
+                : ""
               }`}
             type="button"
             key={conversation.id}
+            disabled={streaming}
             onClick={() =>
               handleSelectConversation(conversation)
             }
@@ -221,12 +313,85 @@ function ChatPage({ user, onLogout }) {
           <>
             <h1>{selectedConversation.title}</h1>
 
+            <section
+              className="conversation-usage-summary"
+              aria-label="Sohbet kullanım özeti"
+            >
+              <div className="conversation-usage-heading">
+                <h2>Sohbet Kullanım Özeti</h2>
+                <button
+                  type="button"
+                  disabled={usageLoading || streaming}
+                  onClick={() =>
+                    refreshConversationUsage(
+                      selectedConversation.id
+                    )
+                  }
+                >
+                  Yenile
+                </button>
+              </div>
+
+              {usageLoading && !conversationUsage && (
+                <p role="status">
+                  Kullanım bilgileri yükleniyor...
+                </p>
+              )}
+
+              {usageError && (
+                <p className="conversation-usage-error" role="alert">
+                  Kullanım bilgileri alınamadı: {usageError}
+                </p>
+              )}
+
+              {conversationUsage && (
+                <div className="conversation-usage-grid">
+                  <div>
+                    <span>Prompt Token</span>
+                    <strong>
+                      {conversationUsage.promptTokens}
+                    </strong>
+                  </div>
+
+                  <div>
+                    <span>Cevap Token</span>
+                    <strong>
+                      {conversationUsage.candidateTokens}
+                    </strong>
+                  </div>
+
+                  <div>
+                    <span>Toplam Token</span>
+                    <strong>
+                      {conversationUsage.totalTokens}
+                    </strong>
+                  </div>
+
+                  <div>
+                    <span>Toplam Maliyet</span>
+                    <strong>
+                      $
+                      {Number(
+                        conversationUsage.totalCostUsd
+                      ).toFixed(6)}
+                    </strong>
+                  </div>
+                </div>
+              )}
+
+              {usageLoading && conversationUsage && (
+                <p className="conversation-usage-updating" role="status">
+                  Kullanım bilgileri güncelleniyor...
+                </p>
+              )}
+            </section>
+
             <div className="messages-container">
               {messages.map((message) => (
                 <div
                   className={`message ${message.role === "user"
-                    ? "user-message"
-                    : "assistant-message"
+                      ? "user-message"
+                      : "assistant-message"
                     }`}
                   key={message.id}
                 >
@@ -249,7 +414,7 @@ function ChatPage({ user, onLogout }) {
 
                   {message.role === "assistant" &&
                     (message.usage ||
-                      message.prompt_tokens !== null) && (
+                      message.prompt_tokens != null) && (
                       <small className="usage-badge">
                         {" "}
                         | Prompt:{" "}
@@ -307,7 +472,7 @@ function ChatPage({ user, onLogout }) {
           </>
         )}
 
-        {error && <p>{error}</p>}
+        {error && <p role="alert">{error}</p>}
       </main>
     </div>
   );
