@@ -173,4 +173,69 @@ router.delete("/:id", authMiddleware, async (req, res) => {
         });
     }
 });
+// Sohbet bazlı token ve maliyet kullanım özeti
+router.get("/:id/usage", authMiddleware, async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        // Geçerli bir sohbet ID'si kontrolü
+        if (!/^[1-9]\d*$/.test(id)) {
+            return res.status(400).json({
+                status: "error",
+                message: "Geçersiz sohbet ID",
+            });
+        }
+
+        // Sohbetin giriş yapan kullanıcıya ait olduğunu doğrula
+        const conversationResult = await pool.query(
+            `SELECT id
+             FROM conversations
+             WHERE id = $1 AND user_id = $2`,
+            [id, req.user.userId]
+        );
+
+        if (conversationResult.rows.length === 0) {
+            return res.status(404).json({
+                status: "error",
+                message: "Sohbet bulunamadı",
+            });
+        }
+
+        // Sohbete ait kullanım kayıtlarını topla
+        const usageResult = await pool.query(
+            `SELECT
+                COALESCE(SUM(ul.prompt_tokens), 0) AS prompt_tokens,
+                COALESCE(SUM(ul.candidate_tokens), 0) AS candidate_tokens,
+                COALESCE(SUM(ul.cost_usd), 0) AS total_cost_usd
+             FROM usage_logs ul
+             INNER JOIN messages m ON ul.message_id = m.id
+             WHERE m.conversation_id = $1
+               AND ul.user_id = $2`,
+            [id, req.user.userId]
+        );
+
+        const usage = usageResult.rows[0];
+
+        const promptTokens = Number(usage.prompt_tokens);
+        const candidateTokens = Number(usage.candidate_tokens);
+
+        return res.status(200).json({
+            status: "ok",
+            usage: {
+                conversationId: Number(id),
+                promptTokens,
+                candidateTokens,
+                totalTokens: promptTokens + candidateTokens,
+                totalCostUsd: Number(usage.total_cost_usd),
+            },
+        });
+    } catch (error) {
+        console.error("GET CONVERSATION USAGE ERROR:", error);
+
+        return res.status(500).json({
+            status: "error",
+            message: "Sohbet kullanım bilgileri alınamadı",
+        });
+    }
+});
 module.exports = router;
