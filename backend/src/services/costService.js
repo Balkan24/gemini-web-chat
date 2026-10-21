@@ -3,6 +3,10 @@ const MODEL_PRICING = {
         inputPerMillion: 0.75,
         outputPerMillion: 3.75,
     },
+    "gemini-3.5-flash-lite": {
+        inputPerMillion: 0.30,
+        outputPerMillion: 2.50,
+    },
 };
 
 function calculateCost(model, promptTokens, candidateTokens) {
